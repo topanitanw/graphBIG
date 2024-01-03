@@ -21,6 +21,19 @@
 
 using namespace std;
 
+#define NO_INLINE __attribute__((noinline))
+#define PREFIX "[sim ticker] "
+
+NO_INLINE void
+sim_roi_start() {
+    printf(PREFIX "roi start\n");
+}
+
+NO_INLINE void
+sim_roi_end() {
+    printf(PREFIX "roi end\n");
+}
+
 #define MY_INFINITY 0xfff0
 size_t beginiter = 0;
 size_t enditer = 0;
@@ -88,20 +101,21 @@ void parallel_bfs(graph_t& g, size_t root, unsigned threadnum, gBenchPerf_multi 
 
     vector<vector<uint64_t> > global_input_tasks(threadnum);
     global_input_tasks[vertex_distributor(root, threadnum)].push_back(root);
-    
+
     vector<vector<uint64_t> > global_output_tasks(threadnum*threadnum);
 
     bool stop = false;
-    #pragma omp parallel num_threads(threadnum) shared(stop,global_input_tasks,global_output_tasks,perf) 
+    sim_roi_start();
+    #pragma omp parallel num_threads(threadnum) shared(stop,global_input_tasks,global_output_tasks,perf)
     {
         unsigned tid = omp_get_thread_num();
         vector<uint64_t> & input_tasks = global_input_tasks[tid];
-      
+
         perf.open(tid, perf_group);
-        perf.start(tid, perf_group); 
+        perf.start(tid, perf_group);
 #ifdef SIM
         unsigned iter = 0;
-#endif       
+#endif
         while(!stop)
         {
             #pragma omp barrier
@@ -110,23 +124,23 @@ void parallel_bfs(graph_t& g, size_t root, unsigned threadnum, gBenchPerf_multi 
 #ifdef SIM
             SIM_BEGIN(iter==beginiter);
             iter++;
-#endif            
-        
+#endif
+
             for (unsigned i=0;i<input_tasks.size();i++)
             {
                 uint64_t vid=input_tasks[i];
                 vertex_iterator vit = g.find_vertex(vid);
                 uint16_t curr_level = vit->property().level;
-                
+
                 for (edge_iterator eit=vit->edges_begin();eit!=vit->edges_end();eit++)
                 {
                     uint64_t dest_vid = eit->target();
                     vertex_iterator destvit = g.find_vertex(dest_vid);
-#ifdef HMC                   
+#ifdef HMC
                     if (HMC_CAS_equal_16B(&(destvit->property().level),
                             MY_INFINITY,curr_level+1) == MY_INFINITY)
 #else
-                    if (__sync_bool_compare_and_swap(&(destvit->property().level), 
+                    if (__sync_bool_compare_and_swap(&(destvit->property().level),
                                 MY_INFINITY,curr_level+1))
 #endif
                     {
@@ -136,7 +150,7 @@ void parallel_bfs(graph_t& g, size_t root, unsigned threadnum, gBenchPerf_multi 
             }
 #ifdef SIM
             SIM_END(iter==enditer);
-#endif            
+#endif
             #pragma omp barrier
             input_tasks.clear();
             for (unsigned i=0;i<threadnum;i++)
@@ -154,13 +168,14 @@ void parallel_bfs(graph_t& g, size_t root, unsigned threadnum, gBenchPerf_multi 
         }
 #ifdef SIM
         SIM_END(enditer==0);
-#endif       
+#endif
         perf.stop(tid, perf_group);
     }
+    sim_roi_end();
 
 }
 
-void bfs(graph_t& g, size_t root, BFSVisitor& vis, gBenchPerf_event & perf, int perf_group) 
+void bfs(graph_t& g, size_t root, BFSVisitor& vis, gBenchPerf_event & perf, int perf_group)
 {
     perf.open(perf_group);
     perf.start(perf_group);
@@ -168,7 +183,7 @@ void bfs(graph_t& g, size_t root, BFSVisitor& vis, gBenchPerf_event & perf, int 
     std::queue<vertex_iterator> vertex_queue;
 
     vertex_iterator iter = g.find_vertex(root);
-    if (iter == g.vertices_end()) 
+    if (iter == g.vertices_end())
         return;
 
     vis.white_vertex(iter);
@@ -183,19 +198,19 @@ void bfs(graph_t& g, size_t root, BFSVisitor& vis, gBenchPerf_event & perf, int 
 #ifdef SIM
     SIM_BEGIN(true);
 #endif
-    while (!vertex_queue.empty()) 
+    while (!vertex_queue.empty())
     {
-        vertex_iterator u = vertex_queue.front(); 
-        vertex_queue.pop();  
+        vertex_iterator u = vertex_queue.front();
+        vertex_queue.pop();
 
-        for (edge_iterator ei = u->edges_begin(); ei != u->edges_end(); ++ei) 
+        for (edge_iterator ei = u->edges_begin(); ei != u->edges_end(); ++ei)
         {
-            vertex_iterator v = g.find_vertex(ei->target()); 
+            vertex_iterator v = g.find_vertex(ei->target());
 
 
             uint8_t v_color = v->property().color;
 
-            if (v_color == COLOR_WHITE) 
+            if (v_color == COLOR_WHITE)
             {
                 vis.white_vertex(v);
 
@@ -205,8 +220,8 @@ void bfs(graph_t& g, size_t root, BFSVisitor& vis, gBenchPerf_event & perf, int 
 
                 vertex_queue.push(v);
                 visit_cnt++;
-            } 
-            else if (v_color == COLOR_GREY) 
+            }
+            else if (v_color == COLOR_GREY)
             {
                 vis.grey_vertex(v);
             }
@@ -216,7 +231,7 @@ void bfs(graph_t& g, size_t root, BFSVisitor& vis, gBenchPerf_event & perf, int 
             }
         }  // end for
         vis.finish_vertex(u);
-        u->property().color = COLOR_BLACK;         
+        u->property().color = COLOR_BLACK;
 
     }  // end while
 #ifdef SIM
@@ -279,7 +294,7 @@ int main(int argc, char * argv[])
     graph_t graph;
     double t1, t2;
 
-    cout<<"loading data... \n";    
+    cout<<"loading data... \n";
     t1 = timer::get_usec();
     string vfile = path + "/vertex.csv";
     string efile = path + "/edge.csv";
@@ -287,7 +302,7 @@ int main(int argc, char * argv[])
 #ifndef EDGES_ONLY
     if (graph.load_csv_vertices(vfile, true, separator, 0) == -1)
         return -1;
-    if (graph.load_csv_edges(efile, true, separator, 0, 1) == -1) 
+    if (graph.load_csv_edges(efile, true, separator, 0, 1) == -1)
         return -1;
 #else
     if (graph.load_csv_edges(efile, true, separator, 0, 1) == -1)
@@ -306,12 +321,12 @@ int main(int argc, char * argv[])
     BFSVisitor vis;
 
     cout<<"\nBFS root: "<<root<<"\n";
-    
+
     gBenchPerf_multi perf_multi(threadnum, perf);
     unsigned run_num = ceil(perf.get_event_cnt() /(double) DEFAULT_PERF_GRP_SZ);
     if (run_num==0) run_num = 1;
     double elapse_time = 0;
-    
+    cout << "threadnum: " << threadnum << endl;
     for (unsigned i=0;i<run_num;i++)
     {
         t1 = timer::get_usec();

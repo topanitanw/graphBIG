@@ -78,7 +78,7 @@ public:
 #ifdef SIM
         add_arg("beginiter","0","sim begin iteration #");
         add_arg("enditer","0","sim end iteration # (0-sim till the end)");
-#endif        
+#endif
     }
 
     void add_arg(std::string name, std::string _default, std::string info, bool has_value=true)
@@ -90,7 +90,7 @@ public:
     bool parse(int argc, char* argv[], bool is_open=false)
     {
             std::vector<std::string> arguments;
-            for (int i=0;i<argc;i++) 
+            for (int i=0;i<argc;i++)
                 arguments.push_back(std::string(argv[i]));
 
             for (unsigned i=1;i<arguments.size();i++)
@@ -117,22 +117,25 @@ public:
                 {
                     _arg[name].value = std::string("1");
                 }
-            } 
+            }
 
             if (_arg["help"].value!=std::string("0"))
                 return false;
             return true;
     }
-#ifndef NO_PERF    
+#ifndef NO_PERF
     bool parse(int argc, char* argv[], gBenchPerf_event & perf, bool is_open=false)
     {
+        std::cerr<<"test 1\n";
         std::vector<std::string> arguments;
-        for (int i=0;i<argc;i++) 
+        for (int i=0;i<argc;i++)
             arguments.push_back(std::string(argv[i]));
 
-        gBenchPerf_event tmp(arguments, is_open);
-        perf = tmp;
+        std::cerr<<"test 2\n";
+        // gBenchPerf_event tmp(arguments, is_open);
+        // perf = tmp;
 
+        std::cerr<<"test 3\n";
         for (unsigned i=1;i<arguments.size();i++)
         {
             std::string name = arguments[i];
@@ -157,13 +160,14 @@ public:
             {
                 _arg[name].value = std::string("1");
             }
-        } 
+        }
 
+        std::cerr<<"test 4\n";
         if (_arg["help"].value!=std::string("0"))
             return false;
         return true;
     }
-#endif    
+#endif
     void help(void)
     {
         std::cout<<"[Usage]:"<<std::endl;
@@ -195,7 +199,7 @@ public:
         }
         value = atof(_arg[name].value.c_str());
         return true;
-    } 
+    }
     bool get_value(std::string name, size_t & value)
     {
         if (_arg.find(name)==_arg.end())
@@ -205,7 +209,7 @@ public:
         }
         value = atol(_arg[name].value.c_str());
         return true;
-    } 
+    }
     bool get_value(std::string name, unsigned & value)
     {
         if (_arg.find(name)==_arg.end())
@@ -215,7 +219,7 @@ public:
         }
         value = atoi(_arg[name].value.c_str());
         return true;
-    } 
+    }
     bool get_value(std::string name, int & value)
     {
         if (_arg.find(name)==_arg.end())
@@ -236,7 +240,7 @@ public:
         int num = atoi(_arg[name].value.c_str());
         value = (num==0)? false : true;
         return true;
-    } 
+    }
 private:
     std::map<std::string, struct arg_t> _arg;
 };
@@ -266,7 +270,7 @@ public:
         timeval tim;
         gettimeofday(&tim, NULL);
         return tim.tv_sec+(tim.tv_usec/1000000.0);
-    } 
+    }
 };
 //================================================================//
 // Performance Counter
@@ -282,7 +286,7 @@ public:
         std::ifstream ifs;
 
         ifs.open("/proc/cpuinfo");
-        if (!ifs.is_open()) 
+        if (!ifs.is_open())
         {
             std::cerr << "can not open /proc/cpuinfo" << std::endl;
             return;
@@ -290,14 +294,14 @@ public:
 
         size_t proc_cnt = 0;
         core_cnt = 0;
-        while (ifs.good()) 
+        while (ifs.good())
         {
             std::string line;
             getline(ifs,line);
             if (line.empty()) continue;
 
             if (line.size() > 10 && line.substr(0,9)=="processor") proc_cnt++;
-            if (core_cnt==0 && line.size() > 9 && line.substr(0,8)=="siblings") 
+            if (core_cnt==0 && line.size() > 9 && line.substr(0,8)=="siblings")
             {
                 core_cnt = atoi(line.substr(10).c_str());
             }

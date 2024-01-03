@@ -13,6 +13,19 @@
 
 using namespace std;
 
+#define NO_INLINE __attribute__((noinline))
+#define PREFIX "[sim ticker] "
+
+NO_INLINE void
+sim_roi_start() {
+    printf(PREFIX "roi start\n");
+}
+
+NO_INLINE void
+sim_roi_end() {
+    printf(PREFIX "roi end\n");
+}
+
 class vertex_property
 {
 public:
@@ -65,18 +78,20 @@ public:
 };
 
 
-void dfs(graph_t& g, size_t root, DFSVisitor& vis, gBenchPerf_event & perf, int perf_group) 
+void dfs(graph_t& g, size_t root, DFSVisitor& vis, gBenchPerf_event & perf, int perf_group)
 {
     perf.open(perf_group);
     perf.start(perf_group);
 #ifdef SIM
     SIM_BEGIN(true);
 #endif
+    sim_roi_start();
+
     std::stack<vertex_iterator> vertex_stack;
-    size_t visit_cnt=0;    
-    
+    size_t visit_cnt=0;
+
     vertex_iterator iter = g.find_vertex(root);
-    if (iter == g.vertices_end()) 
+    if (iter == g.vertices_end())
         return;
 
     vis.white_vertex(iter);
@@ -85,25 +100,25 @@ void dfs(graph_t& g, size_t root, DFSVisitor& vis, gBenchPerf_event & perf, int 
 
     vertex_stack.push(iter);
     visit_cnt++;
-    while (!vertex_stack.empty()) 
+    while (!vertex_stack.empty())
     {
-        vertex_iterator u = vertex_stack.top(); 
-        vertex_stack.pop();  
+        vertex_iterator u = vertex_stack.top();
+        vertex_stack.pop();
 
-        for (edge_iterator ei = u->edges_begin(); ei != u->edges_end(); ++ei) 
+        for (edge_iterator ei = u->edges_begin(); ei != u->edges_end(); ++ei)
         {
-            vertex_iterator v = g.find_vertex(ei->target()); 
+            vertex_iterator v = g.find_vertex(ei->target());
 
             uint64_t v_color = v->property().color;
-            if (v_color == COLOR_WHITE) 
+            if (v_color == COLOR_WHITE)
             {
                 vis.white_vertex(v);
                 v->property().color = COLOR_GREY;
                 v->property().order = visit_cnt;
                 vertex_stack.push(v);
                 visit_cnt++;
-            } 
-            else if (v_color == COLOR_GREY) 
+            }
+            else if (v_color == COLOR_GREY)
             {
                 vis.grey_vertex(v);
             }
@@ -113,12 +128,14 @@ void dfs(graph_t& g, size_t root, DFSVisitor& vis, gBenchPerf_event & perf, int 
             }
         }  // end for
         vis.finish_vertex(u);
-        u->property().color = COLOR_BLACK;         
+        u->property().color = COLOR_BLACK;
 
     }  // end while
 #ifdef SIM
     SIM_END(true);
 #endif
+
+    sim_roi_end();
     perf.stop(perf_group);
 }  // end dfs
 
@@ -177,13 +194,13 @@ int main(int argc, char * argv[])
 #ifndef EDGES_ONLY
     if (graph.load_csv_vertices(vfile, true, separator, 0) == -1)
         return -1;
-    if (graph.load_csv_edges(efile, true, separator, 0, 1) == -1) 
+    if (graph.load_csv_edges(efile, true, separator, 0, 1) == -1)
         return -1;
 #else
     if (graph.load_csv_edges(efile, true, separator, 0, 1) == -1)
         return -1;
 #endif
-    
+
     size_t vertex_num = graph.num_vertices();
     size_t edge_num = graph.num_edges();
     t2 = timer::get_usec();
@@ -201,7 +218,7 @@ int main(int argc, char * argv[])
     unsigned run_num = ceil(perf.get_event_cnt() / (double)DEFAULT_PERF_GRP_SZ);
     if (run_num==0) run_num = 1;
     double elapse_time = 0;
-    
+
     for (unsigned i=0;i<run_num;i++)
     {
         vis.white_access=0;
