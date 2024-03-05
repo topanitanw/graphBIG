@@ -9,6 +9,7 @@
 
 #include "openG.h"
 #include <queue>
+#include <fstream>
 #include "omp.h"
 
 #ifdef SIM
@@ -19,20 +20,20 @@
 #include "HMC.h"
 #endif
 
-using namespace std;
-
+#include <stdio.h>
 #define NO_INLINE __attribute__((noinline))
 #define PREFIX "[sim ticker] "
-
-NO_INLINE void
+static NO_INLINE void
 sim_roi_start() {
     printf(PREFIX "roi start\n");
 }
 
-NO_INLINE void
+static NO_INLINE void
 sim_roi_end() {
     printf(PREFIX "roi end\n");
 }
+
+using namespace std;
 
 #define MY_INFINITY 0xfff0
 size_t beginiter = 0;
@@ -105,6 +106,7 @@ void parallel_bfs(graph_t& g, size_t root, unsigned threadnum, gBenchPerf_multi 
     vector<vector<uint64_t> > global_output_tasks(threadnum*threadnum);
 
     bool stop = false;
+    cout << "start: parallel_bfs" << endl;
     sim_roi_start();
     #pragma omp parallel num_threads(threadnum) shared(stop,global_input_tasks,global_output_tasks,perf)
     {
@@ -172,7 +174,6 @@ void parallel_bfs(graph_t& g, size_t root, unsigned threadnum, gBenchPerf_multi 
         perf.stop(tid, perf_group);
     }
     sim_roi_end();
-
 }
 
 void bfs(graph_t& g, size_t root, BFSVisitor& vis, gBenchPerf_event & perf, int perf_group)
@@ -188,7 +189,7 @@ void bfs(graph_t& g, size_t root, BFSVisitor& vis, gBenchPerf_event & perf, int 
 
     vis.white_vertex(iter);
     size_t visit_cnt=0;
-
+    cout << "bfs serial" << endl;
     iter->property().color = COLOR_GREY;
     iter->property().order = 0;
     iter->property().level = 0;
@@ -198,6 +199,7 @@ void bfs(graph_t& g, size_t root, BFSVisitor& vis, gBenchPerf_event & perf, int 
 #ifdef SIM
     SIM_BEGIN(true);
 #endif
+    sim_roi_start();
     while (!vertex_queue.empty())
     {
         vertex_iterator u = vertex_queue.front();
@@ -234,6 +236,10 @@ void bfs(graph_t& g, size_t root, BFSVisitor& vis, gBenchPerf_event & perf, int 
         u->property().color = COLOR_BLACK;
 
     }  // end while
+
+    sim_roi_end();
+    cout << "visit_cnt: " << visit_cnt << endl;
+
 #ifdef SIM
     SIM_END(true);
 #endif
@@ -299,11 +305,26 @@ int main(int argc, char * argv[])
     string vfile = path + "/vertex.csv";
     string efile = path + "/edge.csv";
 
+    std::ifstream vfile_st(vfile);
+    if (!vfile_st.good()) {
+        cout << vfile << " does not exist" << endl;
+    }
+    cout << "vfile does exist: " << vfile << endl;
+
+    std::ifstream efile_st(vfile);
+    if (!efile_st.good()) {
+        cout << efile << " does not exist" << endl;
+    }
+    cout << "efile does exist: " << efile << endl;
+
 #ifndef EDGES_ONLY
+    cout << "ndef EDGES_ONLY" << endl;
     if (graph.load_csv_vertices(vfile, true, separator, 0) == -1)
         return -1;
+    cout << "finish loading vertices" << endl;
     if (graph.load_csv_edges(efile, true, separator, 0, 1) == -1)
         return -1;
+    cout << "finish loading edges" << endl;
 #else
     if (graph.load_csv_edges(efile, true, separator, 0, 1) == -1)
         return -1;
@@ -325,8 +346,10 @@ int main(int argc, char * argv[])
     gBenchPerf_multi perf_multi(threadnum, perf);
     unsigned run_num = ceil(perf.get_event_cnt() /(double) DEFAULT_PERF_GRP_SZ);
     if (run_num==0) run_num = 1;
+    cout << "run_num: " << run_num << endl;
     double elapse_time = 0;
     cout << "threadnum: " << threadnum << endl;
+
     for (unsigned i=0;i<run_num;i++)
     {
         t1 = timer::get_usec();
@@ -340,6 +363,7 @@ int main(int argc, char * argv[])
         elapse_time += t2-t1;
         if ((i+1)<run_num) reset_graph(graph);
     }
+
     cout<<"BFS finish: \n";
 
 #ifndef ENABLE_VERIFY

@@ -16,6 +16,19 @@
 #include "HMC.h"
 #endif
 
+#include <stdio.h>
+#define NO_INLINE __attribute__((noinline))
+#define PREFIX "[sim ticker] "
+static NO_INLINE void
+sim_roi_start() {
+    printf(PREFIX "roi start\n");
+}
+
+static NO_INLINE void
+sim_roi_end() {
+    printf(PREFIX "roi end\n");
+}
+
 using namespace std;
 
 unsigned itercnt = 0;
@@ -61,7 +74,7 @@ void init_pagerank(graph_t& g, double damp, unsigned threadnum)
         unsigned start = tid*chunk;
         unsigned end = start + chunk;
         if (end > g.num_vertices()) end = g.num_vertices();
-        
+
         for (unsigned vid=start;vid<end;vid++)
         {
             vertex_iterator vit = g.find_vertex(vid);
@@ -77,31 +90,34 @@ void init_pagerank(graph_t& g, double damp, unsigned threadnum)
         }
     }
 }
-void parallel_pagerank(graph_t& g, 
-        unsigned threadnum, 
+void parallel_pagerank(graph_t& g,
+        unsigned threadnum,
         double damp,
         double quad,
         size_t maxiter,
-        gBenchPerf_multi & perf, 
+        gBenchPerf_multi & perf,
         int perf_group)
 {
     uint64_t chunk = (unsigned)ceil(g.num_vertices()/(double)threadnum);
     vector<float> e_vec(threadnum, 0);
     float random_weight = (1.0 - damp) / (double)g.num_vertices();
     bool stop = false;
+
+	sim_roi_start();
+
     #pragma omp parallel num_threads(threadnum)
     {
         unsigned tid = omp_get_thread_num();
 
         perf.open(tid, perf_group);
-        perf.start(tid, perf_group); 
-       
+        perf.start(tid, perf_group);
+
         unsigned start = tid*chunk;
         unsigned end = start + chunk;
         if (end > g.num_vertices()) end = g.num_vertices();
 #ifdef SIM
         unsigned iter = 0;
-#endif 
+#endif
         while(stop == false)
         {
             // Reference: PageRank Algorithm on wiki
@@ -120,7 +136,7 @@ void parallel_pagerank(graph_t& g,
 #endif
             // Push own pr to neighbour vertices
             //  can also be changed to pull based model
-            //      pull based model can avoid atomic inst, 
+            //      pull based model can avoid atomic inst,
             //      but requires predecessor list
             for (unsigned vid=start;vid<end;vid++)
             {
@@ -169,11 +185,12 @@ void parallel_pagerank(graph_t& g,
         }
 #ifdef SIM
         SIM_END(enditer==0);
-#endif  
+#endif
         perf.stop(tid, perf_group);
     }
+	sim_roi_end();
 }
-void output(graph_t& g) 
+void output(graph_t& g)
 {
     cout<<"Page Rank Results: \n";
     vertex_iterator vit;
@@ -224,13 +241,13 @@ int main(int argc, char * argv[])
 #ifndef EDGES_ONLY
     if (graph.load_csv_vertices(vfile, true, separator, 0) == -1)
         return -1;
-    if (graph.load_csv_edges(efile, true, separator, 0, 1) == -1) 
+    if (graph.load_csv_edges(efile, true, separator, 0, 1) == -1)
         return -1;
 #else
     if (graph.load_csv_edges(efile, true, separator, 0, 1) == -1)
         return -1;
 #endif
-   
+
     size_t vertex_num = graph.num_vertices();
     size_t edge_num = graph.num_edges();
     t2 = timer::get_usec();
@@ -248,14 +265,14 @@ int main(int argc, char * argv[])
     unsigned run_num = ceil(perf.get_event_cnt() / (double)DEFAULT_PERF_GRP_SZ);
     if (run_num==0) run_num = 1;
     double elapse_time = 0;
-    
+
     for (unsigned i=0;i<run_num;i++)
     {
         init_pagerank(graph, damp, threadnum);
 
         // Degree Centrality
         t1 = timer::get_usec();
-        
+
         parallel_pagerank(graph, threadnum, damp, quad, maxiter, perf_multi, i);
 
         t2 = timer::get_usec();

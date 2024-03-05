@@ -7,24 +7,25 @@
 #include "def.h"
 #include "openG.h"
 #include <stack>
+
 #ifdef SIM
 #include "SIM.h"
 #endif
 
-using namespace std;
-
+#include <stdio.h>
 #define NO_INLINE __attribute__((noinline))
 #define PREFIX "[sim ticker] "
-
-NO_INLINE void
+static NO_INLINE void
 sim_roi_start() {
     printf(PREFIX "roi start\n");
 }
 
-NO_INLINE void
+static NO_INLINE void
 sim_roi_end() {
     printf(PREFIX "roi end\n");
 }
+
+using namespace std;
 
 class vertex_property
 {
@@ -82,10 +83,12 @@ void dfs(graph_t& g, size_t root, DFSVisitor& vis, gBenchPerf_event & perf, int 
 {
     perf.open(perf_group);
     perf.start(perf_group);
+
+	sim_roi_start();
+
 #ifdef SIM
     SIM_BEGIN(true);
 #endif
-    sim_roi_start();
 
     std::stack<vertex_iterator> vertex_stack;
     size_t visit_cnt=0;
@@ -135,7 +138,8 @@ void dfs(graph_t& g, size_t root, DFSVisitor& vis, gBenchPerf_event & perf, int 
     SIM_END(true);
 #endif
 
-    sim_roi_end();
+	sim_roi_end();
+
     perf.stop(perf_group);
 }  // end dfs
 

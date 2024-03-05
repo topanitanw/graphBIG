@@ -15,22 +15,22 @@
 #include "HMC.h"
 #endif
 
-using namespace std;
-size_t beginiter = 0;
-size_t enditer = 0;
-
+#include <stdio.h>
 #define NO_INLINE __attribute__((noinline))
 #define PREFIX "[sim ticker] "
-
-NO_INLINE void
+static NO_INLINE void
 sim_roi_start() {
     printf(PREFIX "roi start\n");
 }
 
-NO_INLINE void
+static NO_INLINE void
 sim_roi_end() {
     printf(PREFIX "roi end\n");
 }
+
+using namespace std;
+size_t beginiter = 0;
+size_t enditer = 0;
 
 class vertex_property
 {
@@ -60,6 +60,9 @@ void dc(graph_t& g, gBenchPerf_event & perf, int perf_group)
 {
     perf.open(perf_group);
     perf.start(perf_group);
+
+	sim_roi_start();
+
 #ifdef SIM
     SIM_BEGIN(true);
 #endif
@@ -80,13 +83,16 @@ void dc(graph_t& g, gBenchPerf_event & perf, int perf_group)
 #ifdef SIM
     SIM_END(true);
 #endif
+	sim_roi_end();
+
     perf.stop(perf_group);
 }// end dc
+
 void parallel_dc(graph_t& g, unsigned threadnum, gBenchPerf_multi & perf, int perf_group)
 {
     uint64_t chunk = (unsigned)ceil(g.num_vertices()/(double)threadnum);
 
-    sim_roi_start();
+	sim_roi_start();
     #pragma omp parallel num_threads(threadnum)
     {
         unsigned tid = omp_get_thread_num();
@@ -131,8 +137,9 @@ void parallel_dc(graph_t& g, unsigned threadnum, gBenchPerf_multi & perf, int pe
 #endif
         perf.stop(tid, perf_group);
     }
-    sim_roi_end();
+	sim_roi_end();
 }
+
 void degree_analyze(graph_t& g,
                     uint64_t& indegree_max, uint64_t& indegree_min,
                     uint64_t& outdegree_max, uint64_t& outdegree_min)

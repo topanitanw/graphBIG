@@ -1,4 +1,4 @@
-# SUBDIR & ROOT should be predefined 
+# SUBDIR & ROOT should be predefined
 #  before include this mk file
 
 BUILDDIRS=$(SUBDIR:%=build-%)
@@ -9,13 +9,18 @@ HELPDIRS=$(word 1, ${SUBDIR})
 
 
 default: all
+test:
+	@echo "BUILD DIRS: ${BUILDDIRS}"
 
-all: pfm_cxx ${BUILDDIRS} 
+all: pfm_cxx ${BUILDDIRS}
+	@echo "- Build $@ "
+	@echo "- BUILD DIRS: ${BUILDDIRS}"
 
 ${BUILDDIRS}:
+	@echo "-- Build $@ $(@:build-%=%)"
 	@${MAKE} -C $(@:build-%=%) all
 
-pfm_cxx: 
+pfm_cxx:
 	@${MAKE} --no-print-directory -C ${ROOT}/tools all
 
 clean: ${CLEANDIRS}
@@ -25,14 +30,16 @@ ${CLEANDIRS}:
 	@${MAKE} -C $(@:clean-%=%) clean
 
 
-run: pfm_cxx ${RUNDIRS} 
+run: pfm_cxx ${RUNDIRS}
+	@echo "-- Run $@ "
 	@rm -f output.log
 	@for d in ${SUBDIR}; do \
 		cat $$d/output.log >> output.log; \
 	done
 
 ${RUNDIRS}:
-	@${MAKE} -s -C $(@:run-%=%) run
+	@echo "-- rundirs | $@ | ${RUNDIRS}"
+	${MAKE} -s -C $(@:run-%=%) run
 
 
 

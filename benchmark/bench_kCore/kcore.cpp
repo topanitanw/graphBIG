@@ -53,20 +53,20 @@ inline unsigned vertex_distributor(uint64_t vid, unsigned threadnum)
 void seq_init(graph_t& g)
 {
     // initialize
-    for (vertex_iterator vit=g.vertices_begin(); vit!=g.vertices_end(); vit++) 
+    for (vertex_iterator vit=g.vertices_begin(); vit!=g.vertices_end(); vit++)
     {
         size_t degree = vit->edges_size();
         vit->property().degree = (int16_t)degree;
     }
 }
 void kcore(graph_t& g, size_t k,
-        gBenchPerf_event & perf, int perf_group) 
+        gBenchPerf_event & perf, int perf_group)
 {
     perf.open(perf_group);
     perf.start(perf_group);
 
-    // remove vertices iteratively 
-    for (unsigned iter=1;iter<=k;iter++) 
+    // remove vertices iteratively
+    for (unsigned iter=1;iter<=k;iter++)
     {
         for (vertex_iterator vit=g.vertices_begin(); vit!=g.vertices_end(); vit++)
         {
@@ -74,7 +74,7 @@ void kcore(graph_t& g, size_t k,
             if (vit->property().degree > (int16_t)iter) continue;
 
             vit->property().core = iter;
-            for (edge_iterator eit=vit->edges_begin(); eit!=vit->edges_end(); eit++) 
+            for (edge_iterator eit=vit->edges_begin(); eit!=vit->edges_end(); eit++)
             {
                 size_t targ = eit->target();
                 vertex_iterator targ_vit = g.find_vertex(targ);
@@ -91,7 +91,7 @@ void parallel_kcore(graph_t& g, size_t k, unsigned threadnum,
         gBenchPerf_multi & perf, int perf_group)
 {
     unsigned chunk = (unsigned) ceil(g.num_vertices()/(double)threadnum);
-    #pragma omp parallel num_threads(threadnum) 
+    #pragma omp parallel num_threads(threadnum)
     {
         unsigned tid = omp_get_thread_num();
         unsigned start = tid*chunk;
@@ -99,14 +99,14 @@ void parallel_kcore(graph_t& g, size_t k, unsigned threadnum,
         if (end > g.num_vertices()) end = g.num_vertices();
 
         perf.open(tid, perf_group);
-        perf.start(tid, perf_group);  
+        perf.start(tid, perf_group);
 #ifdef SIM
         SIM_BEGIN(true);
-#endif   
-        for (unsigned iter=1;iter<=k;iter++) 
+#endif
+        for (unsigned iter=1;iter<=k;iter++)
         {
             #pragma omp barrier
-            
+
             for (unsigned vid=start;vid<end;vid++)
             {
                 vertex_iterator vit = g.find_vertex(vid);
@@ -120,10 +120,10 @@ void parallel_kcore(graph_t& g, size_t k, unsigned threadnum,
                     uint64_t dest_vid = eit->target();
                     vertex_iterator destvit = g.find_vertex(dest_vid);
 #ifdef HMC
-                    HMC_ADD_16B(&(destvit->property().degree), -1); 
+                    HMC_ADD_16B(&(destvit->property().degree), -1);
 #else
                     __sync_fetch_and_sub(&(destvit->property().degree), 1);
-#endif                        
+#endif
                 }
             }
         }
@@ -177,7 +177,7 @@ int main(int argc, char * argv[])
     size_t k,threadnum;
     arg.get_value("kcore",k);
     arg.get_value("threadnum",threadnum);
-    
+
     graph_t graph;
     cout<<"loading data... \n";
 
@@ -185,10 +185,10 @@ int main(int argc, char * argv[])
     string vfile = path + "/vertex.csv";
     string efile = path + "/edge.csv";
 
-#ifndef EDGES_ONLY    
+#ifndef EDGES_ONLY
     if (graph.load_csv_vertices(vfile, true, separator, 0) == -1)
         return -1;
-    if (graph.load_csv_edges(efile, true, separator, 0, 1) == -1) 
+    if (graph.load_csv_edges(efile, true, separator, 0, 1) == -1)
         return -1;
 #else
     if (graph.load_csv_edges(efile, true, separator, 0, 1) == -1)
@@ -200,7 +200,7 @@ int main(int argc, char * argv[])
     t2 = timer::get_usec();
 
     cout<<"== "<<vertex_num<<" vertices  "<<edge_num<<" edges\n";
-    
+
 #ifndef ENABLE_VERIFY
     cout<<"== time: "<<t2-t1<<" sec\n\n";
 #endif
@@ -211,7 +211,7 @@ int main(int argc, char * argv[])
     unsigned run_num = ceil(perf.get_event_cnt() /(double) DEFAULT_PERF_GRP_SZ);
     if (run_num==0) run_num = 1;
     double elapse_time = 0;
-    
+
     for (unsigned i=0;i<run_num;i++)
     {
         seq_init(graph);

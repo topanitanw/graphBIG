@@ -16,20 +16,22 @@ help:
 	@echo "          clean: clean up generated files"
 	@echo ""
 	@echo " Check documents for supported [OPTIONS]"
-	
+
 reset_generated_dir:
 	@if [ -n "${GENERATED_DIRS}" ]; then \
-          rm -rf ${GENERATED_DIRS}; \
-          mkdir ${GENERATED_DIRS};  \
-        fi
-
-run: ${TARGET} reset_generated_dir
-	@if [ -n "${TARGET}" ]; then \
-          echo "Running ${TARGET}, output in ${OUTPUT_LOG}"; \
-          ./${TARGET} ${RUN_ARGS} ${PERF_ARGS} > ${OUTPUT_LOG} 2>&1; \
+		rm -rf ${GENERATED_DIRS}; \
+		mkdir ${GENERATED_DIRS};  \
 	fi
 
-verify: 
+run: ${TARGET} reset_generated_dir
+	@echo "RUN-run [${TARGET}]"
+	@echo "RUN-run [${PWD}]"
+	@if [ -n "${TARGET}" ]; then \
+		echo "Running ${TARGET}, output in ${OUTPUT_LOG}"; \
+		./${TARGET} ${RUN_ARGS} ${PERF_ARGS} > ${OUTPUT_LOG} 2>&1; \
+	fi
+
+verify:
 	@echo "VERIFY-run [${TARGET}]"
 	@-make clean;
 	@echo "ReCompile with options: OUTPUT=1 VERIFY=1";

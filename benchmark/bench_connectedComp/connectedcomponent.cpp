@@ -16,6 +16,18 @@
 #include "HMC.h"
 #endif
 
+#include <stdio.h>
+#define NO_INLINE __attribute__((noinline))
+#define PREFIX "[sim ticker] "
+static NO_INLINE void
+sim_roi_start() {
+    printf(PREFIX "roi start\n");
+}
+
+static NO_INLINE void
+sim_roi_end() {
+    printf(PREFIX "roi end\n");
+}
 
 #define EDGE_MARK 1
 #define MY_INFINITY 0xfff0
@@ -63,16 +75,17 @@ unsigned parallel_cc(graph_t& g, unsigned threadnum, gBenchPerf_multi & perf, in
 
     uint64_t root = 0;
     bool stop = false;
-    #pragma omp parallel num_threads(threadnum) shared(stop,global_input_tasks,global_output_tasks) 
+	sim_roi_start();
+    #pragma omp parallel num_threads(threadnum) shared(stop,global_input_tasks,global_output_tasks)
     {
         unsigned tid = omp_get_thread_num();
         vector<uint64_t> & input_tasks = global_input_tasks[tid];
-        
+
         perf.open(tid, perf_group);
-        perf.start(tid, perf_group); 
+        perf.start(tid, perf_group);
 #ifdef SIM
         unsigned iter = 0;
-#endif          
+#endif
         while(root < g.num_vertices())
         {
             if (tid == 0)
@@ -93,14 +106,14 @@ unsigned parallel_cc(graph_t& g, unsigned threadnum, gBenchPerf_multi & perf, in
 #ifdef SIM
                 SIM_BEGIN(iter==beginiter);
                 iter++;
-#endif              
-            
+#endif
+
                 for (unsigned i=0;i<input_tasks.size();i++)
                 {
                     uint64_t vid=input_tasks[i];
                     vertex_iterator vit = g.find_vertex(vid);
                     uint16_t curr_level = vit->property().level;
-                    
+
                     for (edge_iterator eit=vit->edges_begin();eit!=vit->edges_end();eit++)
                     {
                         uint64_t dest_vid = eit->target();
@@ -112,11 +125,11 @@ unsigned parallel_cc(graph_t& g, unsigned threadnum, gBenchPerf_multi & perf, in
                     {
                         HMC_CAS_equal_16B(&(destvit->property().label), MY_INFINITY, global_label);
 #else
-                        if (__sync_bool_compare_and_swap(&(destvit->property().level), 
+                        if (__sync_bool_compare_and_swap(&(destvit->property().level),
                                     MY_INFINITY,curr_level+1))
                         {
                             destvit->property().label = global_label;
-#endif                            
+#endif
                             global_output_tasks[vertex_distributor(dest_vid,threadnum)+tid*threadnum].push_back(dest_vid);
                         }
                     }
@@ -156,39 +169,40 @@ unsigned parallel_cc(graph_t& g, unsigned threadnum, gBenchPerf_multi & perf, in
         }
 #ifdef SIM
         SIM_END(enditer==0);
-#endif    
+#endif
         perf.stop(tid, perf_group);
     }
+	sim_roi_end();
 
     return ret;
 }
-void bfs_component(graph_t& g, size_t root) 
+void bfs_component(graph_t& g, size_t root)
 {
     std::queue<vertex_iterator> vertex_queue;
 
     vertex_iterator iter = g.find_vertex(root);
-    if (iter == g.vertices_end()) 
+    if (iter == g.vertices_end())
         return;
 
     iter->property().level = 0;
     iter->property().label = root;
 
     vertex_queue.push(iter);
-    while (!vertex_queue.empty()) 
+    while (!vertex_queue.empty())
     {
-        vertex_iterator u = vertex_queue.front(); 
-        vertex_queue.pop();  
+        vertex_iterator u = vertex_queue.front();
+        vertex_queue.pop();
 
-        for (edge_iterator ei = u->edges_begin(); ei != u->edges_end(); ++ei) 
+        for (edge_iterator ei = u->edges_begin(); ei != u->edges_end(); ++ei)
         {
-            vertex_iterator v = g.find_vertex(ei->target()); 
+            vertex_iterator v = g.find_vertex(ei->target());
 
-            if (v->property().level == MY_INFINITY) 
+            if (v->property().level == MY_INFINITY)
             {
                 v->property().level = u->property().level+1;
                 v->property().label = root;
                 vertex_queue.push(v);
-            } 
+            }
         }  // end for
     }  // end while
 }  // end bfs_component
@@ -199,12 +213,15 @@ size_t connected_component(graph_t& g, gBenchPerf_event & perf, int perf_group)
 
     perf.open(perf_group);
     perf.start(perf_group);
+
+	sim_roi_start();
+
 #ifdef SIM
     SIM_BEGIN(true);
 #endif
-    for (vertex_iterator vit=g.vertices_begin(); vit!=g.vertices_end(); vit++) 
+    for (vertex_iterator vit=g.vertices_begin(); vit!=g.vertices_end(); vit++)
     {
-        if (vit->property().level == MY_INFINITY) 
+        if (vit->property().level == MY_INFINITY)
         {
             bfs_component(g, vit->id());
             ret++;
@@ -215,12 +232,14 @@ size_t connected_component(graph_t& g, gBenchPerf_event & perf, int perf_group)
 #endif
     perf.stop(perf_group);
 
+	sim_roi_end();
+
     return ret;
 }
 void output(graph_t& g)
 {
     cout<<"Connected Component Results: \n";
-    for (vertex_iterator vit=g.vertices_begin(); vit!=g.vertices_end(); vit++) 
+    for (vertex_iterator vit=g.vertices_begin(); vit!=g.vertices_end(); vit++)
     {
         cout<<"== vertex "<<vit->id()<<": component "<<vit->property().label<<endl;
     }
@@ -272,13 +291,13 @@ int main(int argc, char * argv[])
 #ifndef EDGES_ONLY
     if (graph.load_csv_vertices(vfile, true, separator, 0) == -1)
         return -1;
-    if (graph.load_csv_edges(efile, true, separator, 0, 1) == -1) 
+    if (graph.load_csv_edges(efile, true, separator, 0, 1) == -1)
         return -1;
 #else
     if (graph.load_csv_edges(efile, true, separator, 0, 1) == -1)
         return -1;
 #endif
-    
+
     size_t vertex_num = graph.num_vertices();
     size_t edge_num = graph.num_edges();
     t2 = timer::get_usec();
@@ -289,12 +308,14 @@ int main(int argc, char * argv[])
 
     cout<<"\ncomputing connected component...\n";
     size_t component_num;
-    
+
     gBenchPerf_multi perf_multi(threadnum, perf);
     unsigned run_num = ceil(perf.get_event_cnt() / (double)DEFAULT_PERF_GRP_SZ);
     if (run_num==0) run_num = 1;
+    cout << "run_num: " << run_num << endl;
     double elapse_time = 0;
 
+	// sim_roi_start();
     for (unsigned i=0;i<run_num;i++)
     {
         global_label=0;
@@ -309,6 +330,8 @@ int main(int argc, char * argv[])
         elapse_time += t2-t1;
         if ((i+1)<run_num) reset_graph(graph);
     }
+	// sim_roi_end();
+
     cout<<"== total component num: "<<component_num<<endl;
 #ifndef ENABLE_VERIFY
     cout<<"== time: "<<elapse_time/run_num<<" sec\n";

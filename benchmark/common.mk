@@ -29,6 +29,7 @@ ifeq (${HMC},1)
   SIM=1
 endif
 
+SIM=1
 ifeq (${SIM},1)
   OBJS += SIM.o
   CXX_FLAGS += -DSIM
